@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:mysql://mysql:3306/security_monitor?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    username: root
+    password: ${DB_PASSWORD:}
+
+ai:
+  service-url: http://host.docker.internal:8000
+  watch-dir: ${AI_WATCH_DIR:/opt/smart-security/model/ai-watch}

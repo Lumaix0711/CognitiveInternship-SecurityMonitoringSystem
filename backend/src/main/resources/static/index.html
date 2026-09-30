@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能安防远程监控平台</title>
+<script src="js/vue.global.prod.js"></script>
+<style>
+:root{
+  --bg:#eef2f9; --panel:#ffffff; --ink:#1b2b4a; --sub:#75839e; --line:#e7ecf5;
+  --brand:#2a6cd4; --brand2:#1d4fa8; --ok:#1fa35c; --warn:#e08a1e; --danger:#dc4a3f;
+  --r:14px; --shadow:0 1px 2px rgba(23,43,77,.06),0 10px 28px -18px rgba(23,43,77,.25);
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+body{background:var(--bg);min-height:100vh;color:var(--ink)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#c6d1e5;border-radius:8px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#a8b8d6;background-clip:content-box}
+
+/* ---------- 顶栏 ---------- */
+header{position:sticky;top:0;z-index:50;height:60px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;
+  background:linear-gradient(100deg,#16336e 0%,#1d4fa8 45%,#2a6cd4 80%,#3f8ae0 100%);
+  box-shadow:0 4px 18px -6px rgba(22,51,110,.55);color:#fff}
+header::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.07;
+  background:radial-gradient(circle at 18% 120%,#9cc6ff 0,transparent 42%),radial-gradient(circle at 80% -30%,#9cc6ff 0,transparent 40%)}
+.brand{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;letter-spacing:1.5px}
+.brand svg{width:26px;height:26px;filter:drop-shadow(0 2px 6px rgba(120,180,255,.7))}
+.hright{display:flex;align-items:center;gap:16px;font-size:13px}
+.wsp{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+  padding:5px 12px;border-radius:999px;font-size:12px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.dot.on{background:#4ade80;box-shadow:0 0 0 0 rgba(74,222,128,.6);animation:breathe 2s infinite}
+.dot.off{background:#ff8d8d;animation:breathe 1s infinite}
+@keyframes breathe{0%{box-shadow:0 0 0 0 rgba(74,222,128,.55)}70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+.btn-up{display:flex;align-items:center;gap:6px;background:#fff;color:var(--brand2);border:none;border-radius:999px;
+  padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:.18s;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.btn-up:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(0,0,0,.22)}
+.btn-up:active{transform:scale(.96)}
+.btn-up svg{width:14px;height:14px}
+.clock{font-variant-numeric:tabular-nums;opacity:.95;display:flex;flex-direction:column;align-items:flex-end;line-height:1.25}
+.clock small{font-size:11px;opacity:.75}
+
+/* ---------- WS 断线横幅 ---------- */
+.wsbar{position:sticky;top:60px;z-index:49;display:flex;align-items:center;gap:10px;justify-content:center;
+  background:#fff4e0;color:#8a5a12;border-bottom:1px solid #f2dcae;padding:8px 14px;font-size:13px;animation:fadeDown .25s ease}
+.wsbar button{background:#e08a1e;color:#fff;border:none;border-radius:6px;padding:3px 12px;font-size:12px;cursor:pointer}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1}}
+
+/* ---------- 布局 ---------- */
+.layout{display:flex;min-height:calc(100vh - 60px)}
+aside{width:190px;background:#111a2c;padding:14px 10px;flex-shrink:0;display:flex;flex-direction:column;gap:4px}
+aside .menu{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;color:#9fadc8;
+  padding:12px 16px;font-size:14px;cursor:pointer;border-radius:10px;transition:.15s}
+aside .menu svg{width:16px;height:16px;flex-shrink:0}
+aside .menu:hover{color:#fff;background:#1c2940}
+aside .menu.active{color:#fff;background:linear-gradient(90deg,#2a6cd4,#3f8ae0);box-shadow:0 6px 16px -8px #2a6cd4}
+main{flex:1;padding:24px 28px;min-width:0}
+h2.page{font-size:19px;display:flex;align-items:center;gap:10px}
+h2.page::before{content:"";width:4px;height:18px;border-radius:2px;background:linear-gradient(#2a6cd4,#63a4ff)}
+p.sub{font-size:13px;color:var(--sub);margin:6px 0 18px 14px}
+
+/* ---------- 卡片 ---------- */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:20px}
+.card{position:relative;background:var(--panel);border-radius:var(--r);padding:18px 20px 16px;box-shadow:var(--shadow);
+  overflow:hidden;transition:transform .2s, box-shadow .2s;animation:fadeUp .4s ease both}
+.card:hover{transform:translateY(-3px);box-shadow:0 3px 6px rgba(23,43,77,.08),0 18px 36px -18px rgba(23,43,77,.35)}
+.card::before{content:"";position:absolute;left:0;top:0;width:100%;height:3px;background:linear-gradient(90deg,var(--c1),var(--c2))}
+.card.danger{--c1:#dc4a3f;--c2:#ff8d7e}.card.blue{--c1:#2a6cd4;--c2:#63a4ff}
+.card.green{--c1:#1fa35c;--c2:#5fd498}.card.orange{--c1:#e08a1e;--c2:#f5c169}
+.card-top{display:flex;align-items:center;gap:8px;color:var(--sub);font-size:13px}
+.card-ico{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.card-ico svg{width:16px;height:16px}
+.blue .card-ico{background:#e8f0fe;color:#2a6cd4}.danger .card-ico{background:#fdecea;color:#dc4a3f}
+.green .card-ico{background:#e7f7ee;color:#1fa35c}.orange .card-ico{background:#fdf3e3;color:#e08a1e}
+.num{font-size:32px;font-weight:800;margin-top:10px;font-variant-numeric:tabular-nums;letter-spacing:.5px}
+.ring{position:absolute;right:14px;top:14px;width:44px;height:44px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:3.5;stroke-linecap:round}
+.ring .rbg{stroke:#eef1f7}.ring .rfg{stroke:#2a6cd4;transition:stroke-dashoffset .8s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1}}
+
+/* ---------- 面板与表格 ---------- */
+.panel{background:var(--panel);border-radius:var(--r);padding:8px 18px 16px;box-shadow:var(--shadow);animation:fadeUp .4s ease both}
+.tscroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:660px}
+th{color:#8d9ab4;font-weight:600;text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 10px;border-bottom:1px solid #f0f3f9;color:#33415c;vertical-align:middle}
+tbody tr:nth-child(even){background:#fafbfe}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:#f0f5fe}
+tbody tr:last-child td{border-bottom:none}
+td.ellip{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p高{background:#fdecea;color:#c03a2f}.p中{background:#fdf3e3;color:#b06a0e}.p低{background:#e7f7ee;color:#177a46}
+.s待处置{background:#fdecea;color:#c03a2f}.s处置中{background:#fdf3e3;color:#b06a0e}.s已关闭{background:#e7f7ee;color:#177a46}
+.s在线{background:#e7f7ee;color:#177a46}.s离线{background:#fdecea;color:#c03a2f}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.time{white-space:nowrap;color:var(--sub);font-size:12px}
+button.act{border:none;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;transition:.15s;margin-right:6px;font-weight:600}
+button.act:active{transform:scale(.95)}
+button.pri{background:var(--brand);color:#fff}button.pri:hover:not(:disabled){background:#1d5bbd}
+button.dan{background:#fdecea;color:#c03a2f}button.dan:hover:not(:disabled){background:#fad9d5}
+button.act:disabled{background:#eef1f7;color:#b3bdd1;cursor:not-allowed}
+.empty-cell{padding:44px 0!important;text-align:center;color:#9aa7bf}
+.empty-cell svg{width:46px;height:46px;opacity:.5;margin-bottom:10px}
+.empty-cell p{font-size:13px}
+.empty-cell .hint{font-size:12px;color:#b6c1d6;margin-top:4px}
+
+/* ---------- 筛选条 ---------- */
+.filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.filters select,.filters input{border:1px solid #d9e1f0;background:#fff;border-radius:9px;padding:7px 12px;font-size:13px;color:var(--ink);outline:none;transition:.15s}
+.filters select:focus,.filters input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(42,108,212,.14)}
+.filters input{width:220px}
+.filters .cnt{font-size:12px;color:var(--sub);margin-left:auto}
+
+/* ---------- 缩略图 ---------- */
+.thumb{width:44px;height:34px;object-fit:cover;border-radius:6px;cursor:zoom-in;display:block;background:#eef2f9;
+  border:1px solid #e3e9f4;transition:.18s}
+.thumb:hover{transform:scale(1.12);box-shadow:0 4px 12px rgba(23,43,77,.3)}
+.noimg{width:44px;height:34px;border-radius:6px;background:#f1f4fa;display:flex;align-items:center;justify-content:center;color:#b3bdd1;font-size:11px}
+
+/* ---------- 拖拽与文件选择 ---------- */
+.dragov{position:fixed;inset:0;z-index:200;background:rgba(16,32,64,.55);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;animation:fadeDown .18s ease}
+.dragov .zone{width:min(560px,86vw);padding:60px 30px;border:2.5px dashed #7fb1ff;border-radius:24px;text-align:center;color:#fff;
+  background:rgba(29,79,168,.35);animation:pulseZone 1.4s infinite}
+.dragov .zone svg{width:54px;height:54px;margin-bottom:14px}
+.dragov .zone h3{font-size:20px;font-weight:700;letter-spacing:2px}
+.dragov .zone p{font-size:13px;opacity:.8;margin-top:8px}
+@keyframes pulseZone{0%,100%{transform:scale(1)}50%{transform:scale(1.015)}}
+.pickov{position:fixed;inset:0;z-index:210;background:rgba(16,32,64,.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center}
+.pick{background:#fff;border-radius:var(--r);padding:20px;width:min(420px,92vw);box-shadow:0 24px 60px -12px rgba(16,32,64,.5);animation:fadeUp .25s ease}
+.pick h3{font-size:15px;margin-bottom:14px}
+.pick .pv{display:flex;gap:14px;align-items:center;margin-bottom:14px}
+.pick .pv img{width:96px;height:72px;object-fit:cover;border-radius:9px;border:1px solid var(--line)}
+.pick .fn{font-size:13px;color:var(--sub);word-break:break-all}
+.pick label{font-size:13px;color:var(--sub);display:block;margin-bottom:6px}
+.pick select,.pick input[type=text]{width:100%;border:1px solid #d9e1f0;border-radius:9px;padding:8px 12px;font-size:13px;margin-bottom:16px;outline:none}
+.pick .row{display:flex;gap:10px;justify-content:flex-end}
+.btn{border:none;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.btn:active{transform:scale(.96)}
+.btn.pri{background:var(--brand);color:#fff}.btn.pri:hover{background:#1d5bbd}
+.btn.gho{background:#eef2fa;color:#5a6a88}.btn.gho:hover{background:#e3e9f4}
+
+/* ---------- 识别结果卡 ---------- */
+.results{position:fixed;right:20px;bottom:20px;z-index:120;display:flex;flex-direction:column;gap:12px;width:min(360px,calc(100vw - 32px))}
+.rcard{background:#fff;border-radius:var(--r);box-shadow:0 18px 44px -12px rgba(16,32,64,.45);overflow:hidden;animation:slideIn .3s cubic-bezier(.2,.8,.3,1)}
+@keyframes slideIn{from{opacity:0;transform:translateX(30px) scale(.97)}to{opacity:1}}
+.rc-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f6f8fd;font-size:12.5px;color:#5a6a88;border-bottom:1px solid var(--line)}
+.rc-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-head .x{border:none;background:none;font-size:16px;color:#9aa7bf;cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px}
+.rc-head .x:hover{background:#e9edf6;color:#4a5975}
+.rc-body{padding:12px 14px}
+.rc-run{display:flex;align-items:center;gap:10px;padding:26px 14px;color:#5a6a88;font-size:13px}
+.spin{width:18px;height:18px;border-radius:50%;border:2.5px solid #dbe4f3;border-top-color:var(--brand);animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rc-err{padding:14px;color:#c03a2f;font-size:13px}
+.imgbox{position:relative;border-radius:10px;overflow:hidden;background:#0d1526;line-height:0}
+.imgbox img{width:100%;max-height:210px;object-fit:contain;display:block}
+.imgbox canvas{position:absolute;inset:0;width:100%;height:100%}
+.rc-sum{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;color:var(--sub)}
+.rc-cnt{font-size:12px}
+.rc-objs{list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.rc-objs li{display:flex;align-items:center;gap:8px;font-size:12px;color:#4a5975}
+.rc-objs .bar{flex:1;height:5px;background:#eef1f7;border-radius:3px;overflow:hidden}
+.rc-objs .bar b{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#63a4ff,#2a6cd4);transition:width .8s ease}
+.rc-objs em{font-style:normal;color:var(--sub);width:38px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* ---------- toast ---------- */
+.toast-wrap{position:fixed;top:72px;right:20px;z-index:130;display:flex;flex-direction:column;gap:10px}
+.toast{min-width:300px;max-width:380px;background:#fff;border-radius:12px;padding:12px 14px;display:flex;gap:10px;
+  box-shadow:0 14px 34px -10px rgba(23,43,77,.35);animation:slideIn .3s cubic-bezier(.2,.8,.3,1);border-left:4px solid var(--danger)}
+.toast.mid{border-left-color:var(--warn)}.toast.low{border-left-color:var(--ok)}
+.toast .ic{width:30px;height:30px;border-radius:50%;background:#fdecea;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.toast.mid .ic{background:#fdf3e3}.toast.low .ic{background:#e7f7ee}
+.toast .ic svg{width:15px;height:15px;color:#dc4a3f}.toast.mid .ic svg{color:#e08a1e}.toast.low .ic svg{color:#1fa35c}
+.toast .t{font-size:13.5px;font-weight:700}
+.toast .d{font-size:11.5px;color:var(--sub);margin-top:2px}
+
+/* ---------- 灯箱 ---------- */
+.lb{position:fixed;inset:0;z-index:300;background:rgba(8,14,28,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;animation:fadeDown .2s ease}
+.lb-box{width:min(860px,94vw);max-height:92vh;display:flex;flex-direction:column;background:#0d1526;border-radius:16px;overflow:hidden;box-shadow:0 30px 80px -20px #000}
+.lb-head{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;color:#dbe6fb;font-size:13px;border-bottom:1px solid #1d2c4a}
+.lb-head .x{border:none;background:#1d2c4a;color:#9fb3d8;width:30px;height:30px;border-radius:8px;font-size:16px;cursor:pointer}
+.lb-head .x:hover{background:#2a3d63;color:#fff}
+.lb-body{overflow:auto;padding:18px}
+.lb-body .imgbox img{max-height:64vh}
+.lb-meta{display:flex;gap:18px;flex-wrap:wrap;color:#8ea3c7;font-size:12.5px;padding:12px 18px;border-top:1px solid #1d2c4a}
+.lb-meta b{color:#dbe6fb;font-weight:600}
+
+/* ---------- 骨架屏 ---------- */
+.skel{background:linear-gradient(90deg,#f2f5fb 25%,#e6ecf7 37%,#f2f5fb 63%);background-size:400% 100%;
+  animation:shimmer 1.3s infinite;border-radius:10px;height:18px;margin:12px 0}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:900px){
+  .cards{grid-template-columns:repeat(2,1fr)}
+  .layout{flex-direction:column}
+  aside{width:100%;flex-direction:row;overflow-x:auto;padding:8px;gap:6px}
+  aside .menu{width:auto;white-space:nowrap;padding:9px 14px;font-size:13px}
+  main{padding:16px}
+  header{padding:0 12px}
+  .brand{font-size:14px;letter-spacing:0}
+  .clock small{display:none}
+  .filters input{width:130px}
+  table{min-width:560px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 11.5l2 2 4-4"/></svg>
+      智能安防远程监控平台
+    </div>
+    <div class="hright">
+      <span class="wsp"><span :class="['dot', wsOk?'on':'off']"></span>{{ wsOk?'推送已连接':'推送断开' }}</span>
+      <button class="btn-up" @click="pickFile" title="选择图片立即识别">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        <span class="up-t">上传图片识别</span>
+      </button>
+      <div class="clock"><span>{{ now.split(' ')[0] }}</span><small>{{ now.split(' ')[1]||'' }} {{ week }}</small></div>
+    </div>
+    <input type="file" id="fileIn" accept="image/*" style="display:none" @change="onFilePicked">
+  </header>
+
+  <div class="wsbar" v-if="!wsOk">
+    <span class="spin" style="width:13px;height:13px;border-width:2px"></span>
+    实时推送连接已断开，正在自动重连…
+    <button @click="connectWs(true)">立即重试</button>
+  </div>
+
+  <div class="layout">
+    <aside>
+      <button v-for="m in menus" :key="m.k" class="menu" :class="{active: tab===m.k}" @click="switchTab(m.k)">
+        <span v-html="m.i"></span>{{ m.k }}
+      </button>
+    </aside>
+    <main>
+      <!-- 监控大屏 -->
+      <template v-if="tab==='监控大屏'">
+        <h2 class="page">监控大屏</h2>
+        <p class="sub">园区运行总览 · 把图片拖进本页即可立即识别</p>
+        <div class="cards">
+          <stat-card cls="blue" :icon="ico.cam" label="在线设备" :display="dash.deviceOnline+'/'+dash.deviceTotal" :pct="dash.deviceTotal? Math.round((dash.deviceOnline||0)*100/dash.deviceTotal):0"></stat-card>
+          <stat-card cls="green" :icon="ico.cpu" label="AI检测记录" :value="dash.aiEvents||0"></stat-card>
+          <stat-card cls="orange" :icon="ico.bell" label="告警总数" :value="dash.alarmTotal||0"></stat-card>
+          <stat-card cls="danger" :icon="ico.alert" label="待处置告警" :value="dash.pending||0"></stat-card>
+        </div>
+        <div class="panel" style="padding:18px">
+          <div v-if="!loaded" class="skel" style="height:120px"></div>
+          <div v-else class="tips">
+            <p style="font-size:13.5px;color:#4a5975;line-height:2.2">
+              📌 <b>使用提示</b>：向服务器 <code style="background:#eef2fa;padding:1px 6px;border-radius:5px;font-size:12px">ai-watch</code> 目录投放图片会被自动识别；也可以直接把图片<b>拖到本页面</b>，或点右上角「上传图片识别」。识别到烟火 → <span class="pill p高">高</span> 告警，2 人及以上 → <span class="pill p中">人员聚集</span>，空场景不告警、只留痕。
+            </p>
+          </div>
+        </div>
+      </template>
+      <!-- 设备信息 -->
+      <template v-if="tab==='设备信息'">
+        <h2 class="page">设备信息</h2>
+        <p class="sub">园区设备与在线状态（共 {{ devices.length }} 台）</p>
+        <div class="panel"><div class="tscroll"><table>
+          <thead><tr><th>设备编码</th><th>名称</th><th>类型</th><th>区域</th><th>状态</th></tr></thead>
+          <tbody><tr v-for="d in devices" :key="d.id">
+            <td>{{ d.code }}</td><td>{{ d.name }}</td><td>{{ d.type }}</td><td>{{ d.area }}</td>
+            <td><span :class="['pill', d.status==='在线'?'s在线':'s离线']">{{ d.status }}</span></td></tr>
+          </tbody>
+          <tbody v-if="!devices.length"><tr><td colspan="5" class="empty-cell" v-html="empty('暂无设备数据')"></td></tr></tbody>
+        </table></div></div>
+      </template>
+      <!-- AI识别记录 -->
+      <template v-if="tab==='AI识别记录'">
+        <h2 class="page">AI识别记录</h2>
+        <p class="sub">每次检测的原始结果全部入库留痕（含未成警的兜底记录，共 {{ aiRecs.length }} 条），点击缩略图查看带框结果</p>
+        <div class="panel"><div class="tscroll"><record-table :rows="aiRecs" @preview="openLightbox"></record-table></div></div>
+      </template>
+      <!-- 实时告警中心 -->
+      <template v-if="tab==='实时告警中心'">
+        <h2 class="page">实时告警中心</h2>
+        <p class="sub">新告警将实时到达并弹窗提示（共 {{ alarms.length }} 条）</p>
+        <div class="filters">
+          <select v-model="flt.level"><option value="">全部等级</option><option>高</option><option>中</option><option>低</option></select>
+          <select v-model="flt.status"><option value="">全部状态</option><option>待处置</option><option>处置中</option><option>已关闭</option></select>
+          <input v-model="flt.kw" placeholder="搜索类型 / 区域 / 详情…">
+          <span class="cnt">显示 {{ shownAlarms.length }} / {{ alarms.length }} 条</span>
+        </div>
+        <div class="panel"><div class="tscroll">
+          <alarm-table :rows="shownAlarms" :ops="true" :tick="tick" @process="process" @ask-handle="askHandle" empty-text="太棒了，暂无告警"></alarm-table>
+        </div></div>
+      </template>
+      <!-- 告警处置记录 -->
+      <template v-if="tab==='告警处置记录'">
+        <h2 class="page">告警处置记录</h2>
+        <p class="sub">已流转处置（处置中/已关闭）的告警（共 {{ handled.length }} 条）</p>
+        <div class="panel"><div class="tscroll">
+          <alarm-table :rows="handled" :ops="false" :tick="tick" empty-text="还没有处置过的告警"></alarm-table>
+        </div></div>
+      </template>
+    </main>
+  </div>
+
+  <!-- 拖拽遮罩 -->
+  <div class="dragov" v-if="dragging" @dragover.prevent @drop.prevent @dragleave="dragging=false">
+    <div class="zone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+      <h3>松开，立即识别</h3>
+      <p>支持 jpg / png 图片，识别结果与告警将实时出现在本页</p>
+    </div>
+  </div>
+
+  <!-- 区域选择弹窗 -->
+  <div class="pickov" v-if="picker" @click.self="picker=null">
+    <div class="pick">
+      <h3>识别图片</h3>
+      <div class="pv"><img :src="picker.url"><span class="fn">{{ picker.file.name }}</span></div>
+      <label>告警区域（留空则按文件名规则自动解析）</label>
+      <input type="text" v-model="picker.area" list="areaList" placeholder="例如：教学楼南侧 / A区西门">
+      <datalist id="areaList"><option v-for="a in areas" :key="a" :value="a"></option></datalist>
+      <div class="row">
+        <button class="btn gho" @click="picker=null">取消</button>
+        <button class="btn pri" @click="confirmPick">开始识别</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 处置确认弹窗 -->
+  <div class="pickov" v-if="modal" @click.self="modal=null">
+    <div class="pick">
+      <h3>关闭告警 · #{{ modal.a.id }} {{ modal.a.type }}</h3>
+      <div class="pv"><span class="fn" style="line-height:1.7">{{ modal.a.area }}｜{{ modal.a.level }}风险<br>{{ modal.a.detail }}</span></div>
+      <label>处置说明（选填，将追加到告警详情留痕）</label>
+      <input type="text" v-model="modal.note" placeholder="例如：已现场确认，系误报" @keyup.enter="doHandle">
+      <div class="row">
+        <button class="btn gho" @click="modal=null">取消</button>
+        <button class="btn pri" @click="doHandle">确认关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 识别结果卡 -->
+  <div class="results">
+    <div class="rcard" v-for="c in results" :key="c.key">
+      <div class="rc-head"><span>{{ c.name }}</span><button class="x" @click="closeResult(c)">×</button></div>
+      <div v-if="c.state==='run'" class="rc-run"><span class="spin"></span> AI 识别中，通常 1~2 秒…</div>
+      <div v-else-if="c.state==='err'" class="rc-err">识别失败：{{ c.msg }}</div>
+      <div v-else class="rc-body">
+        <img-boxes :src="c.url" :objects="c.objects" :event="c.event"></img-boxes>
+        <div class="rc-sum">
+          <span :class="c.alarm? ['pill', 'p'+c.level] : 'pill s已关闭'">{{ c.alarm? c.event+' · '+c.level+'级告警，已推送' : (c.objects.length? '未匹配告警规则 · 已留痕未告警' : '画面干净 · 已留痕未告警') }}</span>
+          <span class="rc-cnt">{{ c.objects.length }} 个目标</span>
+        </div>
+        <ul class="rc-objs"><li v-for="(o,i) in topObjs(c)" :key="i">
+          <span style="width:52px">{{ o.cn }}</span><i class="bar"><b :style="{width:o.pct+'%'}"></b></i><em>{{ o.pct }}%</em>
+        </li></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 灯箱 -->
+  <div class="lb" v-if="lightbox" @click.self="lightbox=null">
+    <div class="lb-box">
+      <div class="lb-head"><span>#{{ lightbox.id }} {{ lightbox.image }}（{{ lightbox.alarmType }}）</span><button class="x" @click="lightbox=null">×</button></div>
+      <div class="lb-body"><img-boxes :src="imgUrl(lightbox.id)" :objects="lbObjs" :event="lightbox.alarmType" big></img-boxes></div>
+      <div class="lb-meta"><span>区域 <b>{{ lightbox.area }}</b></span><span>对象 <b>{{ lightbox.objectCount }}</b></span><span>成警 <b>{{ lightbox.alarmed?'是':'否' }}</b></span><span>时间 <b>{{ lightbox.eventTime }}</b></span></div>
+    </div>
+  </div>
+
+  <!-- toast -->
+  <div class="toast-wrap">
+    <div class="toast" :class="t.tone" v-for="t in toasts" :key="t.id">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+      <div><div class="t">{{ t.text }}</div><div class="d">{{ t.at }}</div></div>
+    </div>
+  </div>
+</div>
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue
+
+const CN = {person:'人员',fire:'火焰',smoke:'烟雾',car:'轿车',truck:'卡车',bus:'公交车',motorcycle:'摩托',bicycle:'自行车',
+  dog:'狗',cat:'猫',bird:'鸟',horse:'马',sheep:'羊',cow:'牛',bear:'熊',zebra:'斑马',elephant:'大象',giraffe:'长颈鹿',monkey:'猴子',
+  backpack:'背包',suitcase:'行李箱',handbag:'手提包',bottle:'瓶子',cup:'杯子',bowl:'碗',box:'箱子',chair:'椅子',tv:'屏幕',bench:'长椅'}
+function cnCls(c){ return CN[c] || c }
+function objColor(c){
+  if(c==='fire'||c==='smoke') return '#ff453a'
+  if(c==='person') return '#ff9f0a'
+  if(['car','truck','bus','motorcycle','bicycle'].includes(c)) return '#409cff'
+  if(['dog','cat','bird','horse','sheep','cow','bear','zebra','elephant','giraffe','monkey'].includes(c)) return '#30d158'
+  return '#bf5af2'
+}
+const DRIVER = {'烟火异常':['fire','smoke'],'人员聚集':['person'],'人员闯入':['person'],'车辆异常':['car','truck','bus','motorcycle','bicycle'],
+  '动物进入':['dog','cat','bird','horse','sheep','cow','bear','zebra','elephant','giraffe','monkey'],
+  '物品异常':['backpack','suitcase','handbag','bottle','cup','bowl','box','chair','tv','bench'],'目标识别异常':[]}
+const LEVEL = {'烟火异常':'高','人员聚集':'高','人员闯入':'中','车辆异常':'中','动物进入':'中','物品异常':'中'}
+function parseT(s){ if(!s) return 0; const [a,b='00:00:00'] = s.split(' '); const p=a.split('-').map(Number), q=b.split(':').map(Number)
+  return new Date(p[0],p[1]-1,p[2],q[0],q[1],q[2]||0).getTime() }
+function rel(s, tick){ if(!s) return ''; void (tick && tick.value)
+  const d = (Date.now()-parseT(s))/1000
+  if(d<0||isNaN(d)) return s
+  if(d<60) return '刚刚'; if(d<3600) return Math.floor(d/60)+' 分钟前'; if(d<86400) return Math.floor(d/3600)+' 小时前'
+  if(d<86400*3) return Math.floor(d/86400)+' 天前'; return s.slice(5,16) }
+const EMPTY_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M3 17l5.5-5 4 3.5L16 13l5 5"/></svg>'
+
+const I = (p) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'
+const ICONS = {
+  cam: I('<path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>'),
+  cpu: I('<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>'),
+  bell: I('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'),
+  alert: I('<path d="M10.3 3.6L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>'),
+  grid: I('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'),
+  list: I('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
+}
+
+/* ---------- 带框图片 ---------- */
+const ImgBoxes = {
+  props: ['src','objects','event','big'],
+  template: `<div class="imgbox"><img ref="img" :src="src" alt="识别图片" @load="draw"><canvas ref="cv"></canvas></div>`,
+  watch: { objects(){ this.$nextTick(this.draw) }, src(){ this.$nextTick(this.draw) } },
+  mounted(){ if(this.$refs.img.complete) this.draw() },
+  methods: {
+    draw(){
+      const img=this.$refs.img, cv=this.$refs.cv
+      if(!img||!cv||!img.clientWidth||!img.naturalWidth) return
+      const W=img.clientWidth, H=img.clientHeight
+      cv.width=W; cv.height=H
+      const ctx=cv.getContext('2d')
+      ctx.clearRect(0,0,W,H)
+      const objs=(this.objects||[]).filter(o=>o&&Array.isArray(o.box)&&o.box.length===4)
+      if(!objs.length) return
+      const drivers=DRIVER[this.event]||[]
+      const unit=this.big?1:.85
+      objs.forEach(o=>{
+        const x1=o.box[0]*W, y1=o.box[1]*H, x2=o.box[2]*W, y2=o.box[3]*H
+        const color=objColor(o.class)
+        ctx.strokeStyle=color; ctx.lineWidth=this.big?2.5:1.8
+        ctx.strokeRect(x1,y1,x2-x1,y2-y1)
+        const isD=drivers.includes(o.class)
+        const pct=Math.round((o.conf||0)*100)
+        const txt=(isD&&this.event?this.event+'·':'')+cnCls(o.class)+' '+pct+'%'
+        ctx.font='600 '+Math.round(12*unit)+'px "Microsoft YaHei",sans-serif'
+        const tw=ctx.measureText(txt).width+12, th=Math.round(19*unit)
+        let ly=y1-th-7, top=true
+        if(ly<0){ ly=y2+7; top=false }
+        let lx=x1; if(lx+tw>W) lx=W-tw-2; if(lx<0) lx=0
+        ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=1.2
+        ctx.moveTo(x1+8, top?ly+th:y1); ctx.lineTo(x1+8, top?y1:ly)
+        ctx.stroke()
+        ctx.fillStyle=color
+        if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(lx,ly,tw,th,3); ctx.fill() } else ctx.fillRect(lx,ly,tw,th)
+        ctx.fillStyle='#fff'; ctx.fillText(txt,lx+6,ly+th*0.7)
+      })
+    }
+  }
+}
+
+/* ---------- 统计卡（数字滚动+圆环） ---------- */
+const StatCard = {
+  props: ['cls','icon','label','value','display','pct'],
+  data(){ return { shown: 0 } },
+  watch: { value(){ this.tween() } },
+  mounted(){ this.tween() },
+  methods: {
+    tween(){
+      const to=(this.value||0), from=this.shown, t0=performance.now(), dur=750
+      const step=t=>{ const k=Math.min(1,(t-t0)/dur); this.shown=Math.round(from+(to-from)*(1-Math.pow(1-k,3))); if(k<1) requestAnimationFrame(step) }
+      requestAnimationFrame(step)
+    },
+    dash(){ return Math.round(97.4*(1-(this.pct||0)/100)) }
+  },
+  template: `<div class="card" :class="cls">
+    <div class="card-top"><span class="card-ico" v-html="icon"></span><span>{{ label }}</span></div>
+    <div class="num">{{ display!==undefined&&display!==null&&display!==''? display : shown }}</div>
+    <svg v-if="pct!==undefined&&pct!==null" class="ring" viewBox="0 0 36 36">
+      <circle class="rbg" cx="18" cy="18" r="15.5" stroke-dasharray="97.4"/>
+      <circle class="rfg" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" :stroke-dashoffset="dash()"/>
+    </svg>
+  </div>`
+}
+
+/* ---------- 告警表 ---------- */
+const AlarmTable = {
+  props: ['rows','ops','emptyText','tick'],
+  emits: ['process','ask-handle'],
+  computed: {
+    cols(){ const c=['ID','类型','区域','等级','状态','详情','时间']; if(this.ops) c.push('处置'); return c }
+  },
+  methods: { rel(s){ return rel(s, {value: this.tick}) } },
+  template: `<table>
+    <thead><tr><th v-for="c in cols" :key="c">{{ c }}</th></tr></thead>
+    <tbody><tr v-for="a in rows" :key="a.id">
+      <td>{{ a.id }}</td><td style="font-weight:600">{{ a.type }}</td><td>{{ a.area }}</td>
+      <td><span :class="['pill','p'+a.level]">{{ a.level }}</span></td>
+      <td><span :class="['pill','s'+a.status]">{{ a.status }}</span></td>
+      <td class="ellip" :title="a.detail">{{ a.detail }}</td>
+      <td class="time" :title="a.eventTime">{{ rel(a.eventTime) }}</td>
+      <td v-if="ops" style="white-space:nowrap">
+        <button class="act pri" :disabled="a.status!=='待处置'" @click="$emit('process',a.id)">标记处置中</button>
+        <button class="act dan" :disabled="a.status==='已关闭'" @click="$emit('ask-handle',a)">关闭</button>
+      </td></tr>
+    </tbody>
+    <tbody v-if="!rows.length"><tr><td :colspan="cols.length" class="empty-cell">
+      <div v-html="empty"></div><p>{{ emptyText || '暂无数据' }}</p><p class="hint">向 ai-watch 目录投放图片即可产生实时数据</p>
+    </td></tr></tbody>
+  </table>`,
+  data(){ return { empty: EMPTY_SVG } }
+}
+
+/* ---------- 识别记录表 ---------- */
+const RecordTable = {
+  props: ['rows'],
+  emits: ['preview'],
+  methods: {
+    imgUrl(r){ return '/api/ai/image/' + r.id },
+    objs(s){ try { return JSON.parse(s||'[]').map(o=>cnCls(o.class)+'('+Math.round((o.conf||0)*100)+'%)').slice(0,5).join('、') || '无目标' } catch(e){ return s||'无' } }
+  },
+  template: `<table>
+    <thead><tr><th>图片</th><th>ID</th><th>文件名</th><th>区域</th><th>识别对象</th><th>映射结果</th><th>成警</th><th>时间</th></tr></thead>
+    <tbody><tr v-for="r in rows" :key="r.id">
+      <td><img class="thumb" loading="lazy" :src="imgUrl(r)" @click="$emit('preview',r)" @error="$event.target.outerHTML='<span class=&quot;noimg&quot;>无图</span>'"></td>
+      <td>{{ r.id }}</td>
+      <td class="ellip" :title="r.imagePath">{{ r.image }}</td>
+      <td>{{ r.area }}</td>
+      <td class="ellip" :title="objs(r.objects)">{{ objs(r.objects) }}</td>
+      <td>{{ r.alarmType }}</td>
+      <td><span :class="['pill', r.alarmed?'p中':'s已关闭']">{{ r.alarmed?'是':'否' }}</span></td>
+      <td class="time">{{ r.eventTime }}</td>
+    </tr></tbody>
+    <tbody v-if="!rows.length"><tr><td colspan="8" class="empty-cell">
+      <div v-html="empty"></div><p>还没有识别记录</p><p class="hint">把任意图片拖进浏览器即可开始</p>
+    </td></tr></tbody>
+  </table>`,
+  data(){ return { empty: EMPTY_SVG } }
+}
+
+/* ---------- 根 ---------- */
+createApp({
+  setup(){
+    const hash = location.hash.match(/auth=([^&]+)/)
+    if(hash){
+      document.cookie = 'sm_auth=' + decodeURIComponent(hash[1]) + '; path=/; max-age=604800'
+      history.replaceState(null, '', location.pathname)
+    }
+    const menus = [
+      { k:'监控大屏', i:ICONS.grid }, { k:'设备信息', i:ICONS.cam }, { k:'AI识别记录', i:ICONS.cpu },
+      { k:'实时告警中心', i:ICONS.bell }, { k:'告警处置记录', i:ICONS.list }
+    ]
+    const tab = ref('监控大屏'); const now = ref(''); const week = ref('')
+    const wsOk = ref(false); const dash = ref({}); const devices = ref([]); const alarms = ref([]); const aiRecs = ref([])
+    const toasts = ref([]); const results = ref([]); const picker = ref(null); const modal = ref(null)
+    const lightbox = ref(null); const loaded = ref(false); const dragging = ref(false); const tick = ref(0)
+    const flt = reactive({ level:'', status:'', kw:'' })
+    let ws=null, wsTimer=null, dragDepth=0
+
+    const handled = computed(()=>alarms.value.filter(a=>a.status!=='待处置'))
+    const shownAlarms = computed(()=>alarms.value.filter(a=>
+      (!flt.level||a.level===flt.level)&&(!flt.status||a.status===flt.status)&&
+      (!flt.kw.trim()||((a.type||'')+(a.area||'')+(a.detail||'')).includes(flt.kw.trim()))))
+    const areas = computed(()=>[...new Set(devices.value.map(d=>d.area).filter(Boolean))])
+    const lbObjs = computed(()=>{ try { return lightbox.value? JSON.parse(lightbox.value.objects||'[]') : [] } catch(e){ return [] } })
+
+    let pwPromise=null
+    function askPw(){
+      if(!pwPromise){
+        pwPromise = new Promise(res=>{
+          const p = window.prompt('请输入访问密码')
+          if(p && p.trim()){ document.cookie='sm_auth='+p.trim()+'; path=/; max-age=604800'; setTimeout(()=>{pwPromise=null},3000) }
+          res(p)
+        })
+      }
+      return pwPromise
+    }
+    async function f(u,opt){
+      let r = await fetch(u,opt)
+      if(r.status===401){ await askPw(); r = await fetch(u,opt) }
+      return r
+    }
+    async function load(){
+      const g = async u => { const r = await f(u); return r.ok? r.json() : null }
+      const [d,dev,al,rec] = await Promise.all([g('/api/dashboard'),g('/api/devices'),g('/api/alarms'),g('/api/ai/records')])
+      dash.value=d||{}; devices.value=dev||[]; alarms.value=al||[]; aiRecs.value=rec||[]; loaded.value=true
+    }
+    function switchTab(t){ tab.value=t; load() }
+    function notify(text, tone){
+      const id=Date.now()+Math.random()
+      toasts.value.push({id,text,tone,at:new Date().toLocaleString('zh-CN',{hour12:false})})
+      setTimeout(()=>{ toasts.value=toasts.value.filter(x=>x.id!==id) },6000)
+    }
+    async function process(id){ await f('/api/alarms/'+id+'/process',{method:'POST'}); load() }
+    function askHandle(a){ modal.value={a,note:''} }
+    async function doHandle(){
+      const {a,note}=modal.value
+      await f('/api/alarms/'+a.id+'/handle'+(note.trim()? '?note='+encodeURIComponent(note.trim()):''),{method:'POST'})
+      modal.value=null; load(); notify('告警 #'+a.id+' 已关闭','low')
+    }
+    function connectWs(manual){
+      if(ws){ try{ws.close()}catch(e){} }
+      if(wsTimer){ clearTimeout(wsTimer); wsTimer=null }
+      const proto = location.protocol==='https:' ? 'wss:' : 'ws:'
+      ws = new WebSocket(proto+'//'+location.host+'/ws/alerts')
+      ws.onopen=()=>{ wsOk.value=true }
+      ws.onmessage=e=>{
+        let a; try{ a=JSON.parse(e.data) }catch(err){ return }
+        if(a.event==='new-alarm'){ notify('新告警：'+a.type+'（'+(a.level||LEVEL[a.type]||'中')+'）', a.level==='高'||LEVEL[a.type]==='高'?'':'mid'); load() }
+        else if(a.event==='new-record'){ load() }
+      }
+      ws.onclose=()=>{ wsOk.value=false; wsTimer=setTimeout(()=>connectWs(),3000) }
+      ws.onerror=()=>{ try{ws.close()}catch(e){} }
+    }
+    /* 拖拽 & 上传 */
+    function pickFile(){ document.getElementById('fileIn').click() }
+    function onFilePicked(e){ const fl=e.target.files[0]; if(fl) openPicker(fl); e.target.value='' }
+    function openPicker(fl){
+      if(!fl.type.startsWith('image/')){ notify('只能识别图片文件哦','mid'); return }
+      picker.value={file:fl,url:URL.createObjectURL(fl),area:''}
+    }
+    function confirmPick(){
+      const {file,area,url}=picker.value; picker.value=null
+      runAnalyze(file,area,url)
+    }
+    async function runAnalyze(file,area,url){
+      const card=reactive({key:Date.now()+Math.random(),name:file.name,url,state:'run',objects:[],event:'',level:'',alarm:false,msg:''})
+      results.value.unshift(card)
+      if(results.value.length>3) closeResult(results.value[results.value.length-1])
+      const fd=new FormData(); fd.append('image',file,file.name)
+      if(area && area.trim()) fd.append('area',area.trim())
+      try{
+        const r=await f('/api/ai/analyze',{method:'POST',body:fd})
+        if(!r.ok) throw new Error('HTTP '+r.status)
+        const j=await r.json()
+        card.objects=j.objects||[]; card.alarm=!!j.alarm
+        card.event=j.alarm?j.alarm.type:'目标识别异常'; card.level=j.alarm?j.alarm.level:''
+        card.state='ok'
+        setTimeout(()=>{ if(results.value.includes(card)) closeResult(card) },30000)
+      }catch(e){ card.state='err'; card.msg=e.message||String(e) }
+    }
+    function closeResult(c){ URL.revokeObjectURL(c.url); results.value=results.value.filter(x=>x!==c) }
+    function topObjs(c){ return c.objects.slice(0,6).map(o=>({cn:cnCls(o.class),pct:Math.round((o.conf||0)*100)})) }
+    /* 灯箱 */
+    function imgUrl(id){ return '/api/ai/image/'+id }
+    function openLightbox(r){ lightbox.value=r }
+
+    onMounted(()=>{
+      const wk=['星期日','星期一','星期二','星期三','星期四','星期五','星期六']
+      const t=()=>{ const d=new Date(); now.value=d.toLocaleString('zh-CN',{hour12:false}); week.value=wk[d.getDay()] }
+      t(); setInterval(t,1000); setInterval(()=>{ tick.value++ },30000)
+      load(); connectWs()
+      const onKey=e=>{ if(e.key==='Escape'){ lightbox.value=null; picker.value=null; modal.value=null } }
+      window.addEventListener('keydown',onKey)
+      window.addEventListener('dragenter',e=>{
+        if(e.dataTransfer && [...e.dataTransfer.types].includes('Files')){ dragDepth++; dragging.value=true }
+      })
+      window.addEventListener('dragover',e=>e.preventDefault())
+      window.addEventListener('dragleave',e=>{ dragDepth=Math.max(0,dragDepth-1); if(!dragDepth) dragging.value=false })
+      window.addEventListener('drop',e=>{
+        e.preventDefault(); dragDepth=0; dragging.value=false
+        const fl=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]
+        if(fl) openPicker(fl)
+      })
+    })
+    return { menus,tab,now,week,wsOk,dash,devices,alarms,aiRecs,toasts,results,picker,modal,lightbox,loaded,dragging,tick,flt,
+      handled,shownAlarms,areas,lbObjs,ico:ICONS,Math,
+      switchTab,process,askHandle,doHandle,connectWs,pickFile,onFilePicked,confirmPick,closeResult,topObjs,imgUrl,openLightbox }
+  }
+}).component('stat-card',StatCard).component('alarm-table',AlarmTable).component('record-table',RecordTable).component('img-boxes',ImgBoxes).mount('#app')
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# ---- 密钥 / 本地配置 ----
+.env
+
+# ---- 测试图片（含真人面部，隐私原因不入库）----
+assets/
+model/test-images/
+model/ai-watch/
+
+# ---- 模型权重（第三方许可 + 体积大，改为按需下载）----
+*.pt
+model/models/
+
+# ---- 第三方 YOLOv5 工程（整份拷贝，改为克隆官方仓库）----
+model/yolov5/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+ai-service/venv/
+model/yolovenv
+
+# ---- 构建产物 ----
+backend/target/
+*.jar
+
+# ---- 日志 / 杂项 ----
+*.log
+.DS_Store
+Thumbs.db
+
+# ---- Windows / NTFS 残留数据 ----
+*:Zone.Identifier
